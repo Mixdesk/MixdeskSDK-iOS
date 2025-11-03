@@ -206,7 +206,10 @@ static CGFloat const kMXTextCellSensitiveHeight = 25.0;
             [contentAttributes setObject:(__bridge id)[MXChatViewConfig sharedConfig].incomingMsgTextColor.CGColor forKey:(__bridge id)kCTForegroundColorAttributeName];
         }
         self.cellTextAttributes = [[NSDictionary alloc] initWithDictionary:contentAttributes];
-        self.cellText = [[NSAttributedString alloc] initWithString:[MXServiceToViewInterface convertToUnicodeWithEmojiAlias:message.content] attributes:self.cellTextAttributes];
+        
+        // 先转换文本（emoji等），然后基于转换后的文本来匹配链接
+        NSString *convertedContent = [MXServiceToViewInterface convertToUnicodeWithEmojiAlias:message.content];
+        self.cellText = [[NSAttributedString alloc] initWithString:convertedContent attributes:self.cellTextAttributes];
         self.date = message.date;
         self.cellHeight = 44.0;
         self.delegate = delegator;
@@ -235,10 +238,11 @@ static CGFloat const kMXTextCellSensitiveHeight = 25.0;
             }
         }
         [self configCellWidth:cellWidth];
-        //匹配消息文字中的正则
-        self.numberRangeDic = [self createRegexMap:[MXChatViewConfig sharedConfig].numberRegexs for:message.content];
-        self.linkNumberRangeDic = [self createRegexMap:[MXChatViewConfig sharedConfig].linkRegexs for:message.content];
-        self.emailNumberRangeDic = [self createRegexMap:[MXChatViewConfig sharedConfig].emailRegexs for:message.content];
+        
+        // 【修复】基于转换后的文本匹配正则，确保 Range 和显示文本一致
+        self.numberRangeDic = [self createRegexMap:[MXChatViewConfig sharedConfig].numberRegexs for:convertedContent];
+        self.linkNumberRangeDic = [self createRegexMap:[MXChatViewConfig sharedConfig].linkRegexs for:convertedContent];
+        self.emailNumberRangeDic = [self createRegexMap:[MXChatViewConfig sharedConfig].emailRegexs for:convertedContent];
         
         //防止邮件地址被解析为连接地址
         NSMutableDictionary *tempLinkNumberRangDic = [self.linkNumberRangeDic mutableCopy];
@@ -436,7 +440,28 @@ static CGFloat const kMXTextCellSensitiveHeight = 25.0;
 
 -(void)updateSensitiveState:(BOOL)state cellText:(NSString *)cellText{
     self.isSensitive = state;
-    self.cellText = [[NSAttributedString alloc] initWithString:[MXServiceToViewInterface convertToUnicodeWithEmojiAlias:cellText] attributes:self.cellTextAttributes];
+    
+    // 【修复】先转换文本，然后基于转换后的文本重新匹配链接
+    NSString *convertedContent = [MXServiceToViewInterface convertToUnicodeWithEmojiAlias:cellText];
+    self.cellText = [[NSAttributedString alloc] initWithString:convertedContent attributes:self.cellTextAttributes];
+    self.messageContent = cellText;
+    
+    // 【修复】基于转换后的文本重新匹配正则，确保 Range 和显示文本一致
+    self.numberRangeDic = [self createRegexMap:[MXChatViewConfig sharedConfig].numberRegexs for:convertedContent];
+    self.linkNumberRangeDic = [self createRegexMap:[MXChatViewConfig sharedConfig].linkRegexs for:convertedContent];
+    self.emailNumberRangeDic = [self createRegexMap:[MXChatViewConfig sharedConfig].emailRegexs for:convertedContent];
+    
+    //防止邮件地址被解析为连接地址
+    NSMutableDictionary *tempLinkNumberRangDic = [self.linkNumberRangeDic mutableCopy];
+    for ( NSString *email in self.emailNumberRangeDic.allKeys) {
+        for (NSString *link in self.linkNumberRangeDic.allKeys) {
+            if ([email rangeOfString:link].length != 0) {
+                [tempLinkNumberRangDic removeObjectForKey:link];
+            }
+        }
+    }
+    self.linkNumberRangeDic = tempLinkNumberRangDic;
+    
     [self configCellWidth:self.cellWidth];
 }
 

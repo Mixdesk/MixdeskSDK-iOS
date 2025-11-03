@@ -125,20 +125,65 @@ static const NSString *kMXTextCellsensitiveWords = @"！消息包含不规范用
     } else {
         textLabel.attributedText = cellModel.cellText;
     }
-    //获取文字中的可选中的元素
+    
+    // 【修复】获取当前文本的实际长度，用于 Range 验证
+    NSUInteger textLength = 0;
+    if ([textLabel isKindOfClass:[TTTAttributedLabel class]]) {
+        textLength = [cellModel.cellText string].length;
+    } else {
+        textLength = cellModel.cellText.length;
+    }
+    
+    //获取文字中的可选中的元素，添加 Range 验证防止越界
     if (cellModel.emailNumberRangeDic.count > 0) {
         for (NSString *key in cellModel.emailNumberRangeDic.allKeys) {
-            [textLabel addLinkToTransitInformation:@{@"email" : key} withRange:[cellModel.emailNumberRangeDic[key] rangeValue]];
+            NSRange range = [cellModel.emailNumberRangeDic[key] rangeValue];
+            // 【修复】验证 Range 是否在有效范围内
+            if (range.location != NSNotFound && 
+                range.location < textLength && 
+                NSMaxRange(range) <= textLength) {
+                @try {
+                    [textLabel addLinkToTransitInformation:@{@"email" : key} withRange:range];
+                } @catch (NSException *exception) {
+                    NSLog(@"⚠️ 添加邮箱链接失败: %@, range: %@, textLength: %lu", exception, NSStringFromRange(range), (unsigned long)textLength);
+                }
+            } else {
+                NSLog(@"⚠️ 邮箱链接 Range 越界，已跳过: key=%@, range=%@, textLength=%lu", key, NSStringFromRange(range), (unsigned long)textLength);
+            }
         }
     }
     if (cellModel.numberRangeDic.count > 0) {
         for (NSString *key in cellModel.numberRangeDic.allKeys) {
-            [textLabel addLinkToPhoneNumber:key withRange:[cellModel.numberRangeDic[key] rangeValue]];
+            NSRange range = [cellModel.numberRangeDic[key] rangeValue];
+            // 【修复】验证 Range 是否在有效范围内
+            if (range.location != NSNotFound && 
+                range.location < textLength && 
+                NSMaxRange(range) <= textLength) {
+                @try {
+                    [textLabel addLinkToPhoneNumber:key withRange:range];
+                } @catch (NSException *exception) {
+                    NSLog(@"⚠️ 添加电话链接失败: %@, range: %@, textLength: %lu", exception, NSStringFromRange(range), (unsigned long)textLength);
+                }
+            } else {
+                NSLog(@"⚠️ 电话链接 Range 越界，已跳过: key=%@, range=%@, textLength=%lu", key, NSStringFromRange(range), (unsigned long)textLength);
+            }
         }
     }
     if (cellModel.linkNumberRangeDic.count > 0) {
         for (NSString *key in cellModel.linkNumberRangeDic.allKeys) {
-            [textLabel addLinkToURL:[NSURL URLWithString:key] withRange:[cellModel.linkNumberRangeDic[key] rangeValue]];
+            NSRange range = [cellModel.linkNumberRangeDic[key] rangeValue];
+            // 【修复】验证 Range 是否在有效范围内
+            if (range.location != NSNotFound && 
+                range.location < textLength && 
+                NSMaxRange(range) <= textLength) {
+                @try {
+                    [textLabel addLinkToURL:[NSURL URLWithString:key] withRange:range];
+                } @catch (NSException *exception) {
+                    NSLog(@"⚠️ 添加 URL 链接失败: %@, range: %@, textLength: %lu", exception, NSStringFromRange(range), (unsigned long)textLength);
+                }
+            } else {
+                NSLog(@"⚠️ URL 链接 Range 越界，已跳过: key=%@, range=%@, textLength=%lu", key, NSStringFromRange(range), (unsigned long)textLength);
+            }
         }
     }
     

@@ -9,14 +9,14 @@
 
 Pod::Spec.new do |s|
   s.name             = "Mixdesk"
-  s.version          = "1.0.8"
+  s.version          = "1.0.9"
   s.summary          = "Mixdesk官方 SDK for iOS"
   s.description      = "Mixdesk官方的 iOS SDK, 可接入Mixdesk系统"
 
   s.homepage         = "https://github.com/Mixdesk/MixdeskSDK-iOS"
   s.license          = 'MIT'
   s.author           = { "songuu" => "1101309860@qq.com" }
-  s.source           = { :git => "https://github.com/Mixdesk/MixdeskSDK-iOS.git", :tag => "v1.0.8" }
+  s.source           = { :git => "https://github.com/Mixdesk/MixdeskSDK-iOS.git", :tag => "v1.0.9" }
   s.social_media_url = "https://mixdesk.com"
   s.documentation_url = "https://github.com/Mixdesk/MixdeskSDK-iOS/wiki"
   s.platform     = :ios, '10.0'
