@@ -20,6 +20,7 @@
     UILabel *titleLabel;
     UILabel *descLable;
     UILabel *saleCountLable;
+    UILabel *priceLabel;
     UILabel *linkLable;
     UIActivityIndicatorView *sendingIndicator;
     UIImageView *failureImageView;
@@ -44,18 +45,29 @@
         
         //初始化contentImageView
         bubbleContentImageView = [[UIImageView alloc] init];
+        bubbleContentImageView.contentMode = UIViewContentModeScaleAspectFill;
+        bubbleContentImageView.clipsToBounds = YES;
         [bubbleView addSubview:bubbleContentImageView];
         //初始化title
         titleLabel = [[UILabel alloc] init];
-        titleLabel.font = [UIFont systemFontOfSize:16.0];
+        titleLabel.font = [MXProductCardCellModel titleFont];
         titleLabel.textColor = [UIColor colorWithRed:4/255.0 green:15/255.0 blue:66/255.0 alpha:1];
+        titleLabel.numberOfLines = 2;
+        titleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
         [bubbleView addSubview:titleLabel];
         //初始化description
         descLable = [[UILabel alloc] init];
-        descLable.font = [UIFont systemFontOfSize:13.0];
+        descLable.font = [MXProductCardCellModel descFont];
         descLable.textColor = [UIColor colorWithRed:111/255.0 green:117/255.0 blue:146/255.0 alpha:1];
-        descLable.numberOfLines = 2;
+        descLable.numberOfLines = 1;
+        descLable.lineBreakMode = NSLineBreakByTruncatingTail;
         [bubbleView addSubview:descLable];
+        //初始化价格
+        priceLabel = [[UILabel alloc] init];
+        priceLabel.font = [MXProductCardCellModel priceFont];
+        priceLabel.textColor = [UIColor colorWithRed:245/255.0 green:63/255.0 blue:63/255.0 alpha:1];
+        priceLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+        [bubbleView addSubview:priceLabel];
         //初始化salecount
         saleCountLable = [[UILabel alloc] init];
         saleCountLable.font = [UIFont systemFontOfSize:13.0];
@@ -67,6 +79,7 @@
         linkLable.textColor = [UIColor colorWithRed:24/255.0 green:128/255.0 blue:155/255.0 alpha:1];
         linkLable.textAlignment = NSTextAlignmentRight;
         linkLable.text = [MXBundleUtil localizedStringForKey:@"product_message_check_details"];
+        linkLable.hidden = YES; //#216 整卡可点，不再显示“查看详情”
         [bubbleView addSubview:linkLable];
         
         //初始化indicator
@@ -106,11 +119,17 @@
     bubbleContentImageView.frame = cellModel.contentImageViewFrame;
     
     //消息图片
+    bubbleContentImageView.hidden = cellModel.productPictureUrl.length == 0;
     bubbleContentImageView.image = cellModel.image;
     titleLabel.text = cellModel.title;
     descLable.text = cellModel.desc;
-    NSString *countStr = (cellModel.saleCount && cellModel.saleCount >= 0) ? [NSString stringWithFormat:@"%ld",cellModel.saleCount] : @"--";
-    saleCountLable.text = [NSString stringWithFormat:@"%@: %@",[MXBundleUtil localizedStringForKey:@"product_message_sales"],countStr];
+    descLable.hidden = cellModel.desc.length == 0;
+    priceLabel.text = cellModel.price;
+    priceLabel.hidden = cellModel.price.length == 0;
+    priceLabel.frame = cellModel.priceFrame;
+    //旧数据：无价格且有销量时显示销量
+    saleCountLable.hidden = CGRectIsEmpty(cellModel.saleCountFrame);
+    saleCountLable.text = [NSString stringWithFormat:@"%@: %ld",[MXBundleUtil localizedStringForKey:@"product_message_sales"],cellModel.saleCount];
     
     titleLabel.frame = cellModel.titleFrame;
     descLable.frame = cellModel.descriptionFrame;
@@ -150,7 +169,7 @@
 #pragma UIAlertViewDelegate
 -(void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == 1) {
-        MXProductCardMessage *message = [[MXProductCardMessage alloc] initWithPictureUrl:cellModel.productPictureUrl title:cellModel.title description:cellModel.desc productUrl:cellModel.productUrl andSalesCount:cellModel.saleCount];
+        MXProductCardMessage *message = [[MXProductCardMessage alloc] initWithTitle:cellModel.title productUrl:cellModel.productUrl pictureUrl:cellModel.productPictureUrl price:cellModel.price description:cellModel.desc];
         [self.chatCellDelegate resendMessageInCell:self resendData:@{@"productCard" : message}];
     }
 }

@@ -25,24 +25,9 @@ static CGFloat const kMXCellBubbleToContentSpacing = 12.0;
 static CGFloat const kMXCellTextContentSpacing = 5.0;
 
 /**
- * 商品title内容的高度
- */
-static CGFloat const kMXCellTitleHeigh = 20.0;
-
-/**
- * 商品描述内容的高度
- */
-static CGFloat const kMXCellDescriptionHeigh = 35.0;
-
-/**
  * 商品销售量内容的高度
  */
 static CGFloat const kMXCellSaleCountHeigh = 18.0;
-
-/**
- * 商品链接提示内容的宽度
- */
-static CGFloat const kMXCellLinkWidth = 100.0;
 
 /**
  * 图片的高宽比,宽4高3
@@ -80,6 +65,16 @@ static CGFloat const kMXCellImageRatio = 0.75;
  * @brief 商品的销售量
  */
 @property (nonatomic, readwrite, assign) long saleCount;
+
+/**
+ * @brief 商品的价格文本
+ */
+@property (nonatomic, readwrite, copy) NSString *price;
+
+/**
+ * @brief bubble中的价格的frame
+ */
+@property (nonatomic, readwrite, assign) CGRect priceFrame;
 
 /**
  * @brief 商品的url
@@ -196,6 +191,7 @@ static CGFloat const kMXCellImageRatio = 0.75;
         self.productUrl = message.productUrl;
         self.desc = message.desc;
         self.saleCount = message.salesCount;
+        self.price = message.price ?: @"";
         self.avatarPath = @"";
         self.cellHeight = 44.0;
         if (message.userAvatarImage) {
@@ -242,7 +238,8 @@ static CGFloat const kMXCellImageRatio = 0.75;
         if (message.pictureUrl.length > 0) {
             
             //默认cell高度为图片显示的最大高度
-            self.cellHeight = cellWidth / 2;
+            //先按内容算好高度，图片下载完成后再刷新
+            [self setModelsWithContentImage:nil cellFromType:message.fromType cellWidth:cellWidth];
             
             //                [self setModelsWithContentImage:[MXChatViewConfig sharedConfig].incomingBubbleImage cellFromType:message.fromType cellWidth:cellWidth];
             
@@ -283,8 +280,9 @@ static CGFloat const kMXCellImageRatio = 0.75;
             }];
 #endif
         } else {
-            self.image = [MXChatViewConfig sharedConfig].imageLoadErrorImage;
-            [self setModelsWithContentImage:self.image cellFromType:message.fromType cellWidth:cellWidth];
+            //无图：隐藏图片区，只显示文字区
+            self.image = nil;
+            [self setModelsWithContentImage:nil cellFromType:message.fromType cellWidth:cellWidth];
         }
     } else {
         [self setModelsWithContentImage:self.image cellFromType:message.fromType cellWidth:cellWidth];
@@ -292,81 +290,85 @@ static CGFloat const kMXCellImageRatio = 0.75;
     return self;
 }
 
-//根据气泡中的图片生成其他model
+//根据内容生成其他model（#216：高度按内容计算，名称最多 2 行，价格 1 行，描述 1 行，无图隐藏图片区）
 - (void)setModelsWithContentImage:(UIImage *)contentImage
                           cellFromType:(MXChatMessageFromType)cellFromType
                         cellWidth:(CGFloat)cellWidth
 {
-    //限定图片的最大直径
-    CGFloat maxContentImageWide = ceil(cellWidth / 2);  //限定图片的最大直径
-    
-    //图片宽度固定
-    CGFloat imageWidth = maxContentImageWide;
-    CGFloat imageHeight = imageWidth * kMXCellImageRatio;
-    
-    //根据消息的来源，进行处理
-    UIImage *bubbleImage = [MXChatViewConfig sharedConfig].incomingBubbleImage;
-    if ([MXChatViewConfig sharedConfig].incomingBubbleColor) {
-        bubbleImage = [MXImageUtil convertImageColorWithImage:bubbleImage toColor:[MXChatViewConfig sharedConfig].incomingBubbleColor];
+    //内容宽度固定为 cellWidth / 2
+    CGFloat contentWidth = ceil(cellWidth / 2);
+    CGFloat y = kMXCellBubbleToContentSpacing;
+
+    //商品图片：只有有图片链接时才显示
+    if (self.productPictureUrl.length > 0) {
+        self.contentImageViewFrame = CGRectMake(kMXCellBubbleToContentSpacing, y, contentWidth, ceil(contentWidth * kMXCellImageRatio));
+        y = CGRectGetMaxY(self.contentImageViewFrame) + kMXCellBubbleToContentSpacing;
+    } else {
+        self.contentImageViewFrame = CGRectZero;
     }
-    
+
+    //商品名称，最多 2 行
+    CGFloat titleHeight = [MXProductCardCellModel heightForText:self.title font:[MXProductCardCellModel titleFont] width:contentWidth maxLines:2];
+    self.titleFrame = CGRectMake(kMXCellBubbleToContentSpacing, y, contentWidth, titleHeight);
+    y = CGRectGetMaxY(self.titleFrame);
+
+    //价格（无价格不占行）；旧数据无价格但有销量时显示销量
+    if (self.price.length > 0) {
+        self.priceFrame = CGRectMake(kMXCellBubbleToContentSpacing, y + kMXCellTextContentSpacing, contentWidth, ceil([MXProductCardCellModel priceFont].lineHeight));
+        y = CGRectGetMaxY(self.priceFrame);
+        self.saleCountFrame = CGRectZero;
+    } else if (self.saleCount > 0) {
+        self.priceFrame = CGRectZero;
+        self.saleCountFrame = CGRectMake(kMXCellBubbleToContentSpacing, y + kMXCellTextContentSpacing, contentWidth, kMXCellSaleCountHeigh);
+        y = CGRectGetMaxY(self.saleCountFrame);
+    } else {
+        self.priceFrame = CGRectZero;
+        self.saleCountFrame = CGRectZero;
+    }
+
+    //描述，1 行
+    if (self.desc.length > 0) {
+        self.descriptionFrame = CGRectMake(kMXCellBubbleToContentSpacing, y + kMXCellTextContentSpacing, contentWidth, ceil([MXProductCardCellModel descFont].lineHeight));
+        y = CGRectGetMaxY(self.descriptionFrame);
+    } else {
+        self.descriptionFrame = CGRectZero;
+    }
+    //不再显示“查看详情”，整卡可点
+    self.linkFrame = CGRectZero;
+
+    CGFloat bubbleWidth = contentWidth + 2 * kMXCellBubbleToContentSpacing;
+    CGFloat bubbleHeight = y + kMXCellBubbleToContentSpacing;
+
     if (cellFromType == MXChatMessageOutgoing) {
         //发送出去的消息
         self.cellFromType = MXChatCellOutgoing;
-        bubbleImage = [MXChatViewConfig sharedConfig].outgoingBubbleImage;
-        if ([MXChatViewConfig sharedConfig].outgoingBubbleColor) {
-            bubbleImage = [MXImageUtil convertImageColorWithImage:bubbleImage toColor:[MXChatViewConfig sharedConfig].outgoingBubbleColor];
-        }
         //头像的frame
         if ([MXChatViewConfig sharedConfig].enableOutgoingAvatar) {
             self.avatarFrame = CGRectMake(cellWidth-kMXCellAvatarToHorizontalEdgeSpacing-kMXCellAvatarDiameter, kMXCellAvatarToVerticalEdgeSpacing, kMXCellAvatarDiameter, kMXCellAvatarDiameter);
         } else {
             self.avatarFrame = CGRectMake(0, 0, 0, 0);
         }
-        
-        //商品图片的frame
-        self.contentImageViewFrame = CGRectMake(kMXCellBubbleToContentSpacing, kMXCellBubbleToContentSpacing, imageWidth, imageHeight);
-        //商品title的frame
-        self.titleFrame = CGRectMake(kMXCellBubbleToContentSpacing, kMXCellBubbleToContentSpacing + CGRectGetMaxY(self.contentImageViewFrame), imageWidth, kMXCellTitleHeigh);
-        //商品描述内容的frame
-        self.descriptionFrame = CGRectMake(kMXCellBubbleToContentSpacing, kMXCellTextContentSpacing + CGRectGetMaxY(self.titleFrame), imageWidth, kMXCellDescriptionHeigh);
-        //商品销量的frame
-        self.saleCountFrame = CGRectMake(kMXCellBubbleToContentSpacing, kMXCellTextContentSpacing + CGRectGetMaxY(self.descriptionFrame), imageWidth / 2.0, kMXCellSaleCountHeigh);
-        //商品详情链接提示的frame
-        self.linkFrame = CGRectMake(kMXCellBubbleToContentSpacing + imageWidth - kMXCellLinkWidth , CGRectGetMinY(self.saleCountFrame), kMXCellLinkWidth, kMXCellSaleCountHeigh);
-        
         //气泡的frame
-        self.bubbleFrame = CGRectMake(cellWidth - self.avatarFrame.size.width - kMXCellAvatarToHorizontalEdgeSpacing - kMXCellAvatarToBubbleSpacing - imageWidth - 2 * kMXCellBubbleToContentSpacing,
+        self.bubbleFrame = CGRectMake(cellWidth - self.avatarFrame.size.width - kMXCellAvatarToHorizontalEdgeSpacing - kMXCellAvatarToBubbleSpacing - bubbleWidth,
                                       kMXCellAvatarToVerticalEdgeSpacing,
-                                      imageWidth + 2 * kMXCellBubbleToContentSpacing,
-                                      imageHeight + kMXCellBubbleToContentSpacing * 3 + kMXCellTextContentSpacing * 2 + kMXCellTitleHeigh + kMXCellDescriptionHeigh + kMXCellSaleCountHeigh);
+                                      bubbleWidth,
+                                      bubbleHeight);
     } else {
         //收到的消息
         self.cellFromType = MXChatCellIncoming;
-        
         //头像的frame
         if ([MXChatViewConfig sharedConfig].enableIncomingAvatar) {
             self.avatarFrame = CGRectMake(kMXCellAvatarToHorizontalEdgeSpacing, kMXCellAvatarToVerticalEdgeSpacing, kMXCellAvatarDiameter, kMXCellAvatarDiameter);
         } else {
             self.avatarFrame = CGRectMake(0, 0, 0, 0);
         }
-        //商品图片的frame
-        self.contentImageViewFrame = CGRectMake(kMXCellBubbleToContentSpacing, kMXCellBubbleToContentSpacing, imageWidth, imageHeight);
-        //商品title的frame
-        self.titleFrame = CGRectMake(kMXCellBubbleToContentSpacing, kMXCellBubbleToContentSpacing + CGRectGetMaxY(self.contentImageViewFrame), imageWidth, kMXCellTitleHeigh);
-        //商品描述内容的frame
-        self.descriptionFrame = CGRectMake(kMXCellBubbleToContentSpacing, kMXCellTextContentSpacing + CGRectGetMaxY(self.titleFrame), imageWidth, kMXCellDescriptionHeigh);
-        //商品销量的frame
-        self.saleCountFrame = CGRectMake(kMXCellBubbleToContentSpacing, kMXCellTextContentSpacing + CGRectGetMaxY(self.descriptionFrame), imageWidth / 2.0, kMXCellSaleCountHeigh);
-        //商品详情链接提示的frame
-        self.linkFrame = CGRectMake(kMXCellBubbleToContentSpacing + imageWidth - kMXCellLinkWidth , CGRectGetMinY(self.saleCountFrame), kMXCellLinkWidth, kMXCellSaleCountHeigh);
         //气泡的frame
         self.bubbleFrame = CGRectMake(self.avatarFrame.origin.x+self.avatarFrame.size.width+kMXCellAvatarToBubbleSpacing,
                                       self.avatarFrame.origin.y,
-                                      imageWidth + 2 * kMXCellBubbleToContentSpacing,
-                                      imageHeight + kMXCellBubbleToContentSpacing * 3 + kMXCellTextContentSpacing * 2 + kMXCellTitleHeigh + kMXCellDescriptionHeigh + kMXCellSaleCountHeigh);
+                                      bubbleWidth,
+                                      bubbleHeight);
     }
-    
+
     //发送消息的indicator的frame
     UIActivityIndicatorView *indicatorView = [[UIActivityIndicatorView alloc] initWithFrame:CGRectMake(0, 0, kMXCellIndicatorDiameter, kMXCellIndicatorDiameter)];
     self.sendingIndicatorFrame = CGRectMake(self.bubbleFrame.origin.x-kMXCellBubbleToIndicatorSpacing-indicatorView.frame.size.width, self.bubbleFrame.origin.y+self.bubbleFrame.size.height/2-indicatorView.frame.size.height/2, indicatorView.frame.size.width, indicatorView.frame.size.height);
@@ -394,6 +396,35 @@ static CGFloat const kMXCellImageRatio = 0.75;
 
 }
 
+
+#pragma 文字度量
++ (UIFont *)titleFont {
+    return [UIFont systemFontOfSize:16.0];
+}
+
++ (UIFont *)priceFont {
+    return [UIFont boldSystemFontOfSize:16.0];
+}
+
++ (UIFont *)descFont {
+    return [UIFont systemFontOfSize:13.0];
+}
+
++ (CGFloat)heightForText:(NSString *)text font:(UIFont *)font width:(CGFloat)width maxLines:(NSInteger)maxLines {
+    CGFloat lineHeight = ceil(font.lineHeight);
+    if (text.length == 0 || width <= 0) {
+        return lineHeight;
+    }
+    CGRect rect = [text boundingRectWithSize:CGSizeMake(width, CGFLOAT_MAX)
+                                     options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
+                                  attributes:@{NSFontAttributeName : font}
+                                     context:nil];
+    CGFloat h = ceil(rect.size.height);
+    if (maxLines > 0) {
+        h = MIN(h, lineHeight * maxLines);
+    }
+    return MAX(h, lineHeight);
+}
 
 #pragma MXCellModelProtocol
 - (CGFloat)getCellHeight {

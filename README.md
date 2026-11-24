@@ -325,6 +325,39 @@ MXChatViewManager *chatViewManager = [[MXChatViewManager alloc] init];
 
 开源聊天界面的更多配置，可参见 [MXChatViewManager.h](https://github.com/Mixdesk/MixdeskSDK-iOS/blob/master/Mixdesk-SDK-files/MXChatViewController/Config/MXChatViewManager.h) 文件。
 
+## 商品卡片消息（1.0.10）
+
+（v1.0.10 起）访客可以发送商品卡片给客服：名称、链接必填，图片、价格、描述选填；链接和图片只允许 http / https，不合法时不发送。卡片在聊天页显示为：图片（无图时不显示图片区）、名称（最多 2 行）、价格（红色加粗）、描述（1 行）。
+
+```objective-c
+MXProductCardMessage *card = [[MXProductCardMessage alloc]
+    initWithTitle:@"轻量缓震跑步鞋 男款"
+       productUrl:@"https://shop.example.com/p/123"
+       pictureUrl:@"https://shop.example.com/img/123.jpg"   // 可传 nil
+            price:@"¥199"                                    // 可传 nil，原样展示
+      description:nil];
+
+MXChatViewManager *manager = [MXChatViewManager new];
+manager.preSendMessages = @[card];                  // 方式一：打开聊天页即发送
+MXChatViewController *vc = [manager pushMXChatViewControllerInViewController:self];
+[vc sendProductCardMessage:card];                   // 方式二：聊天页已打开时发送
+```
+
+```swift
+let card = MXProductCardMessage(title: "轻量缓震跑步鞋 男款",
+                                productUrl: "https://shop.example.com/p/123",
+                                pictureUrl: nil,
+                                price: "¥199",
+                                description: "透气网面")
+let vc = MXChatViewManager().pushMXChatViewController(in: self)
+vc?.sendProductCardMessage(card)
+```
+
+- 发送中显示菊花，失败显示红色感叹号，点击后确认即可重发（带上价格）。
+- 点击卡片：设置了 `-[MXChatViewManager didTapProductCard:]` 回调时交给接入方处理；否则默认只用系统浏览器打开 http / https 链接，其它协议忽略。
+- 旧的 `initWithPictureUrl:title:description:productUrl:andSalesCount:` 已废弃，仍可用。
+
+
 # 六 SDK中嵌入MixdeskSDK
 
 **本节主要介绍部分重要的接口。在`MixdeskSDK.framework`的`MXManager.h`中，所有接口都有详细注释。**
@@ -747,6 +780,13 @@ VoiceConvert |  N/A | AMR 和 WAV 语音格式的互转；没找到出处，哪�
 
 **v1.0.7  2025 年 9 月 9 日**
 * SDK 新增联系人已读和未读功能
+
+**v1.0.10  2026 年 11 月 24 日**
+
+- 新增商品卡片发送接口，支持图片、名称、价格、描述和商品链接。
+- 优化收发卡片与历史消息展示，无图时隐藏图片区，名称最多两行、描述一行。
+- 旧商品卡片接口保留兼容，修复空参数崩溃；商品链接仅允许 http/https。
+- 更新 framework 至 1.0.10，兼容当前 Xcode 构建。
 
 **v1.0.9  2025 年 11 月 3 日**
 * SDK 解决文本消息中含有超链接报错的情况

@@ -210,6 +210,17 @@
  * @param delegate
  * 发送消息的代理，会返回完整的消息对象，代理函数：-(void)didSendMessage:expcetion:
  */
+/**
+ * 发送商品卡片消息（#216，支持价格；名称、链接必填，链接/图片只允许 http/https）
+ */
++ (void)sendProductCardMessageWithTitle:(NSString *)title
+                             productUrl:(NSString *)productUrl
+                             pictureUrl:(NSString *)pictureUrl
+                                  price:(NSString *)price
+                            description:(NSString *)desc
+                              messageId:(NSString *)localMessageId
+                               delegate:(id<MXServiceToViewInterfaceDelegate>)delegate;
+
 + (void)sendProductCardMessageWithPictureUrl:(NSString *)pictureUrl
                                        title:(NSString *)title
                                 descripation:(NSString *)descripation

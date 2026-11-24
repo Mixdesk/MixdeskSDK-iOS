@@ -269,6 +269,53 @@
                                 }];
 }
 
++ (void)sendProductCardMessageWithTitle:(NSString *)title
+                             productUrl:(NSString *)productUrl
+                             pictureUrl:(NSString *)pictureUrl
+                                  price:(NSString *)price
+                            description:(NSString *)desc
+                              messageId:(NSString *)localMessageId
+                               delegate:(id<MXServiceToViewInterfaceDelegate>)
+                                            delegate {
+  void (^completion)(MXMessage *, NSError *) =
+      ^(MXMessage *sendedMessage, NSError *error) {
+        if (error) {
+          [self didSendFailedWithMessage:sendedMessage
+                          localMessageId:localMessageId
+                                   error:error
+                                delegate:delegate];
+        } else {
+          [self didSendMessage:sendedMessage
+                localMessageId:localMessageId
+                      delegate:delegate];
+        }
+      };
+  SEL sel = NSSelectorFromString(
+      @"sendProductCardMessageWithTitle:productUrl:pictureUrl:price:"
+      @"description:completion:");
+  if ([MXManager respondsToSelector:sel]) {
+    // 逻辑层 MixdeskSDK.framework >= 1.0.6
+    typedef MXMessage *(*MXSendProductCardIMP)(
+        id, SEL, NSString *, NSString *, NSString *, NSString *, NSString *,
+        void (^)(MXMessage *, NSError *));
+    MXSendProductCardIMP imp =
+        (MXSendProductCardIMP)[MXManager methodForSelector:sel];
+    imp([MXManager class], sel, title, productUrl, pictureUrl, price, desc,
+        completion);
+  } else {
+    // 兼容旧版 framework：旧方法参数为 nil 会崩溃，这里兜底为空串；旧版不支持 price
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    [MXManager sendProductCardMessageWithPictureUrl:pictureUrl ?: @""
+                                              title:title ?: @""
+                                       descripation:desc ?: @""
+                                         productUrl:productUrl ?: @""
+                                         salesCount:0
+                                         completion:completion];
+#pragma clang diagnostic pop
+  }
+}
+
 + (void)sendClientInputtingWithContent:(NSString *)content {
   [MXManager sendClientInputtingWithContent:content];
 }

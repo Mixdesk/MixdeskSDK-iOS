@@ -17,7 +17,7 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
-#define MXSDKVersion @"1.0.9"
+#define MXSDKVersion @"1.0.10"
 @protocol MXManagerDelegate <NSObject>
 
 /**
@@ -449,9 +449,39 @@
                                           NSError *error))completion;
 
 /**
- * 发送商品卡片消息
+ * 发送商品卡片消息（content_type = hybrid，content = [{"type":"product_card","body":{...}}]）
  *
- * @param pictureUrl 商品图片的url。不能为空，否则不执行发送操作。
+ * @param title      商品名称，必填，去掉首尾空白后不能为空（≤128）
+ * @param productUrl 商品链接，必填，只允许 http / https
+ * @param pictureUrl 商品图片，可空，非空时只允许 http / https
+ * @param price      价格文本（如 ¥199），可空，原样展示（≤32）
+ * @param desc       商品描述，可空（≤512）
+ * @return 该条商品卡片消息，此时状态为发送中；参数不合法时不发送，返回状态为失败的消息，completion 回调 error（domain MXProductCardErrorDomain，code 20001）
+ * @warning 需要在初始化成功后，且联系人是在线状态时调用才有效
+ */
++ (MXMessage *)sendProductCardMessageWithTitle:(NSString *)title
+                                    productUrl:(NSString *)productUrl
+                                    pictureUrl:(NSString *)pictureUrl
+                                         price:(NSString *)price
+                                   description:(NSString *)desc
+                                    completion:(void (^)(MXMessage *sendedMessage,
+                                                         NSError *error))completion;
+
+/**
+ * 校验商品卡片参数并生成 hybrid 消息 content；参数不合法返回 nil 并通过 error 带出原因。不联网。
+ */
++ (NSString *)productCardContentWithTitle:(NSString *)title
+                               productUrl:(NSString *)productUrl
+                               pictureUrl:(NSString *)pictureUrl
+                                    price:(NSString *)price
+                              description:(NSString *)desc
+                                    error:(NSError **)error;
+
+/**
+ * 发送商品卡片消息（已废弃，请改用 sendProductCardMessageWithTitle:productUrl:pictureUrl:price:description:completion:）
+ *
+ * 内部转调新方法；salesCount 不再发送；参数为 nil 不再崩溃。
+ * @param pictureUrl 商品图片的url。
  * @param title 商品标题。不能为空，否则不执行发送操作。
  * @param descripation 商品描述内容。不能为空，否则不执行发送操作。
  * @param productUrl 商品链接。不能为空，否则不执行发送操作。
@@ -467,7 +497,8 @@
                               productUrl:(NSString *)productUrl
                               salesCount:(long)salesCount
                               completion:(void (^)(MXMessage *sendedMessage,
-                                                   NSError *error))completion;
+                                                   NSError *error))completion
+    __attribute__((deprecated("请改用 sendProductCardMessageWithTitle:productUrl:pictureUrl:price:description:completion:")));
 
 /**
  * 将用户正在输入的内容，提供给客服查看。该接口没有调用限制，但每1秒内只会向服务器发送一次数据

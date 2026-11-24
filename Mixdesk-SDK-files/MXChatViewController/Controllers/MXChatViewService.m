@@ -399,11 +399,11 @@ static NSInteger const kMXChatGetHistoryMessageNumber = 20;
 
 - (void)sendProductCardWithModel:(MXProductCardMessage *)productCard {
   MXProductCardMessage *message =
-      [[MXProductCardMessage alloc] initWithPictureUrl:productCard.pictureUrl
-                                                 title:productCard.title
-                                           description:productCard.desc
-                                            productUrl:productCard.productUrl
-                                         andSalesCount:productCard.salesCount];
+      [[MXProductCardMessage alloc] initWithTitle:productCard.title
+                                       productUrl:productCard.productUrl
+                                       pictureUrl:productCard.pictureUrl
+                                            price:productCard.price
+                                      description:productCard.desc];
   message.conversionId =
       [MXServiceToViewInterface getCurrentConversationID] ?: @"";
   MXProductCardCellModel *cellModel = [[MXProductCardCellModel alloc]
@@ -415,13 +415,13 @@ static NSInteger const kMXChatGetHistoryMessageNumber = 20;
   [self addCellModelAndReloadTableViewWithModel:cellModel];
 #ifdef INCLUDE_MIXDESK_SDK
   [MXServiceToViewInterface
-      sendProductCardMessageWithPictureUrl:message.pictureUrl
-                                     title:message.title
-                              descripation:message.desc
-                                productUrl:message.productUrl
-                                salesCount:message.salesCount
-                                 messageId:message.messageId
-                                  delegate:self];
+      sendProductCardMessageWithTitle:message.title
+                           productUrl:message.productUrl
+                           pictureUrl:message.pictureUrl
+                                price:message.price
+                          description:message.desc
+                            messageId:message.messageId
+                             delegate:self];
 #else
   // 模仿发送成功
   dispatch_after(

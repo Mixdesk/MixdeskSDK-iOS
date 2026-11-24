@@ -14,8 +14,6 @@
 #import <CoreTelephony/CTCellularData.h>
 
 
-#define APPKeyInTest @"a71c257c80dfe883d92a64dca323ec20"
-#define APPKeyClientTest @"7cd6134129e19707bfe43a84c1fca6e7"
 
 @interface AppDelegate ()
 

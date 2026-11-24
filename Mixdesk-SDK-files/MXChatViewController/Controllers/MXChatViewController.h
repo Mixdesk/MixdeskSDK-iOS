@@ -18,6 +18,8 @@
  *
  * 虽然开发者可以根据MXChatViewController暴露的接口来自定义界面，但推荐做法是通过MXChatViewManager中提供的接口，来对客服聊天界面进行自定义配置；
  */
+#import "MXProductCardMessage.h"
+
 @interface MXChatViewController : UIViewController
 
 /**
@@ -50,6 +52,12 @@
 - (void)dismissChatViewController;
 
 - (void)didSelectNavigationRightButton;
+
+/**
+ * 聊天界面已打开时，以访客身份发送一张商品卡片（界面上立即出现，带发送中 / 失败重试）
+ * @param productCard 用 -[MXProductCardMessage initWithTitle:productUrl:pictureUrl:price:description:] 创建
+ */
+- (void)sendProductCardMessage:(MXProductCardMessage *)productCard;
 
 #ifdef INCLUDE_MIXDESK_SDK
 /**

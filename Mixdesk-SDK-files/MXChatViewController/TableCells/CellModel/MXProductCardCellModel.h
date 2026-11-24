@@ -50,6 +50,16 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly, assign) long saleCount;
 
 /**
+ * @brief 商品的价格文本（可空）
+ */
+@property (nonatomic, readonly, copy) NSString *price;
+
+/**
+ * @brief bubble中的价格的frame
+ */
+@property (nonatomic, readonly, assign) CGRect priceFrame;
+
+/**
  * @brief 商品的url
  */
 @property (nonatomic, readonly, copy) NSString *productUrl;
@@ -140,6 +150,15 @@ NS_ASSUME_NONNULL_BEGIN
 - (MXProductCardCellModel *)initCellModelWithMessage:(MXProductCardMessage *)message
                                      cellWidth:(CGFloat)cellWidth
                                       delegate:(id<MXCellModelDelegate>)delegate;
+
+/** 名称字体 16pt */
++ (UIFont *)titleFont;
+/** 价格字体 16pt 粗体 */
++ (UIFont *)priceFont;
+/** 描述字体 13pt */
++ (UIFont *)descFont;
+/** 按最大行数计算文字高度 */
++ (CGFloat)heightForText:(NSString *)text font:(UIFont *)font width:(CGFloat)width maxLines:(NSInteger)maxLines;
 
 @end
 

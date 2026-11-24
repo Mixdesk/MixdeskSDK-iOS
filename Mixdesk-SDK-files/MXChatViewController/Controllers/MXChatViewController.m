@@ -1134,12 +1134,40 @@ static CGFloat const kMXChatViewInputBarHeight = 80.0;
 - (void)didTapProductCard:(NSString *)productUrl {
 
   if (chatViewConfig.productCardCallBack) {
+    // 接入方设置了回调，由接入方自行处理
     chatViewConfig.productCardCallBack(productUrl);
-  } else {
-    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:productUrl]
+    return;
+  }
+  // 默认只放行 http / https，防止 javascript:、自定义 scheme 等外链
+  NSURL *url = [MXChatViewController safeProductURLFromString:productUrl];
+  if (url) {
+    [[UIApplication sharedApplication] openURL:url
                                        options:@{}
                              completionHandler:nil];
   }
+}
+
++ (NSURL *)safeProductURLFromString:(NSString *)urlString {
+  if (![urlString isKindOfClass:[NSString class]] || urlString.length == 0) {
+    return nil;
+  }
+  NSURL *url = [NSURL
+      URLWithString:[urlString stringByTrimmingCharactersInSet:
+                                   [NSCharacterSet
+                                       whitespaceAndNewlineCharacterSet]]];
+  NSString *scheme = url.scheme.lowercaseString;
+  if (url.host.length == 0 ||
+      !([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"])) {
+    return nil;
+  }
+  return url;
+}
+
+- (void)sendProductCardMessage:(MXProductCardMessage *)productCard {
+  if (![productCard isKindOfClass:[MXProductCardMessage class]]) {
+    return;
+  }
+  [self.chatViewService sendProductCardWithModel:productCard];
 }
 
 #pragma MXEvaluationViewDelegate

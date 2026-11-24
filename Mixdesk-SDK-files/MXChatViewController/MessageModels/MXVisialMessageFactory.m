@@ -136,50 +136,98 @@
   return toMessage;
 }
 
+/**
+ * hybrid 内容数组：优先取 extra.content，取不到回退 message.content（#216，访客自己发的卡片拉历史时 extra 可能没有 content）
+ */
++ (NSArray *)hybridContentArrayFromMessage:(MXMessage *)message {
+  id raw = nil;
+  if ([message.accessoryData isKindOfClass:[NSDictionary class]]) {
+    raw = message.accessoryData[@"content"];
+  }
+  NSArray *arr = [self hybridArrayFromRaw:raw];
+  if (arr.count == 0) {
+    arr = [self hybridArrayFromRaw:message.content];
+  }
+  return arr;
+}
+
++ (NSArray *)hybridArrayFromRaw:(id)raw {
+  if ([raw isKindOfClass:[NSArray class]]) {
+    return raw;
+  }
+  if ([raw isKindOfClass:[NSString class]] && [(NSString *)raw length] > 0) {
+    id obj = [NSJSONSerialization
+        JSONObjectWithData:[(NSString *)raw dataUsingEncoding:NSUTF8StringEncoding]
+                   options:0
+                     error:nil];
+    if ([obj isKindOfClass:[NSArray class]]) {
+      return obj;
+    }
+  }
+  return @[];
+}
+
++ (NSString *)stringValue:(id)v {
+  if ([v isKindOfClass:[NSString class]]) {
+    return v;
+  }
+  if ([v isKindOfClass:[NSNumber class]]) {
+    return [v stringValue];
+  }
+  return @"";
+}
+
++ (MXProductCardMessage *)productCardFromBody:(NSDictionary *)body {
+  if (![body isKindOfClass:[NSDictionary class]]) {
+    body = @{};
+  }
+  MXProductCardMessage *card = [[MXProductCardMessage alloc]
+      initWithTitle:[self stringValue:body[@"title"]]
+         productUrl:[self stringValue:body[@"product_url"]]
+         pictureUrl:[self stringValue:body[@"pic_url"]]
+              price:[self stringValue:body[@"price"]]
+        description:[self stringValue:body[@"description"]]];
+  id sales = body[@"sales_count"];
+  if ([sales respondsToSelector:@selector(longValue)]) {
+    card.salesCount = [sales longValue];
+  }
+  id pid = body[@"product_id"];
+  if ([pid isKindOfClass:[NSNumber class]]) {
+    card.productId = pid;
+  } else if ([pid isKindOfClass:[NSString class]] && [pid length] > 0) {
+    card.productId = @([pid longLongValue]);
+  }
+  return card;
+}
+
 - (MXBaseMessage *)messageFromContentTypeHybrid:(MXMessage *)message
                                 toMXBaseMessage:(MXBaseMessage *)baseMessage {
-  if (message.accessoryData &&
-      [message.accessoryData isKindOfClass:[NSDictionary class]]) {
-    NSDictionary *dataDic =
-        [NSDictionary dictionaryWithDictionary:message.accessoryData];
-
-    // 处理内容部分
-    if ([dataDic objectForKey:@"content"] &&
-        ![[dataDic objectForKey:@"content"] isEqual:[NSNull null]]) {
-      NSArray *contentArr = [NSArray array];
-      contentArr =
-          [MXJsonUtil createWithJSONString:[dataDic objectForKey:@"content"]];
-
-      if (contentArr.count > 0) {
-        NSDictionary *contentDic = contentArr.firstObject;
-        if ([contentDic[@"type"] isEqualToString:@"photo_card"]) {
-          // 图片卡片类型
-          MXPhotoCardMessage *photoCard = [[MXPhotoCardMessage alloc]
-              initWithImagePath:contentDic[@"body"][@"pic_url"]
-                     andUrlPath:contentDic[@"body"][@"target_url"]];
-          baseMessage = photoCard;
-        } else if ([contentDic[@"type"] isEqualToString:@"product_card"]) {
-          // 产品卡片类型
-          MXProductCardMessage *productCard = [[MXProductCardMessage alloc]
-              initWithPictureUrl:contentDic[@"body"][@"pic_url"]
-                           title:contentDic[@"body"][@"title"]
-                     description:contentDic[@"body"][@"description"]
-                      productUrl:contentDic[@"body"][@"product_url"]
-                   andSalesCount:[contentDic[@"body"][@"sales_count"]
-                                     longValue]];
-          baseMessage = productCard;
-        } else if ([contentDic[@"type"] isEqualToString:@"option"]) {
-          // 初始化混合消息对象
-          MXHybridMessage *hybridMessage =
-              [[MXHybridMessage alloc] initWithDictionary:dataDic];
-          // 使用MXHybridMessage中的方法处理用户反馈按钮
-          [hybridMessage parseFeedbackButtonsFromDictionary:contentDic];
-          // 设置不显示消息内容和头像
-          hybridMessage.content = @"";
-          hybridMessage.hideAvatar = YES;
-          baseMessage = hybridMessage;
-        }
-      }
+  NSArray *contentArr = [MXVisialMessageFactory hybridContentArrayFromMessage:message];
+  if (contentArr.count > 0 &&
+      [contentArr.firstObject isKindOfClass:[NSDictionary class]]) {
+    NSDictionary *contentDic = contentArr.firstObject;
+    if ([contentDic[@"type"] isEqual:@"photo_card"]) {
+      // 图片卡片类型
+      MXPhotoCardMessage *photoCard = [[MXPhotoCardMessage alloc]
+          initWithImagePath:contentDic[@"body"][@"pic_url"]
+                 andUrlPath:contentDic[@"body"][@"target_url"]];
+      baseMessage = photoCard;
+    } else if ([contentDic[@"type"] isEqual:@"product_card"]) {
+      // 商品卡片类型
+      baseMessage = [MXVisialMessageFactory productCardFromBody:contentDic[@"body"]];
+    } else if ([contentDic[@"type"] isEqual:@"option"] &&
+               [message.accessoryData isKindOfClass:[NSDictionary class]]) {
+      NSDictionary *dataDic =
+          [NSDictionary dictionaryWithDictionary:message.accessoryData];
+      // 初始化混合消息对象
+      MXHybridMessage *hybridMessage =
+          [[MXHybridMessage alloc] initWithDictionary:dataDic];
+      // 使用MXHybridMessage中的方法处理用户反馈按钮
+      [hybridMessage parseFeedbackButtonsFromDictionary:contentDic];
+      // 设置不显示消息内容和头像
+      hybridMessage.content = @"";
+      hybridMessage.hideAvatar = YES;
+      baseMessage = hybridMessage;
     }
   }
 
